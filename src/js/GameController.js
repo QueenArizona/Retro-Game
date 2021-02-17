@@ -5,6 +5,7 @@ import Undead from './characters/Undead';
 import Vampire from './characters/Vampire';
 import Daemon from './characters/Daemon';
 import GamePlay from './GamePlay';
+import GameState from './GameState';
 import { generateTeam } from './generators';
 import info from './info';
 import checkOpportunity from './checkOpportunity';
@@ -16,6 +17,7 @@ export default class GameController {
     this.userTeam = generateTeam([Bowman, Swordsman], 1, 2);
     this.computerTeam = generateTeam([Undead, Daemon, Vampire], 1, 2);
     this.players = [...this.userTeam, ...this.computerTeam];
+    this.gameState = new GameState();
     this.selectedCell = null;
     this.selectedMouseCell = null;
     this.selectedChar = null;
@@ -43,7 +45,20 @@ export default class GameController {
       } else {
         GamePlay.showError('You cannot play this character');
       }
+    } else if (this.selectedChar !== null) {
+      const canMove = checkOpportunity('move', this.selectedChar.position, this.selectedChar.character, index);
+
+      if (canMove) {
+        this.selectedChar.position = index;
+        this.gamePlay.redrawPositions(this.players);
+        if (this.selectedCell != null) {
+          this.gamePlay.deselectCell(this.selectedCell);
+        }
+        this.selectedChar = null;
+        this.gameState.turn = 'computer';
+      }
     }
+    this.selectedCell = null;
   }
 
   onCellEnter(index) {
