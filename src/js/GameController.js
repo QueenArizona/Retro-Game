@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return */
 /* eslint-disable max-len */
 /* eslint-disable no-param-reassign */
 import Bowman from './characters/Bowman';
@@ -11,6 +12,7 @@ import GameState from './GameState';
 import { generateTeam } from './generators';
 import info from './info';
 import checkOpportunity from './checkOpportunity';
+import getPosition from './getPosition';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -23,6 +25,20 @@ export default class GameController {
     this.selectedCell = null;
     this.selectedMouseCell = null;
     this.selectedChar = null;
+    this.level = 1;
+    this.points = 0;
+    this.locked = false;
+  }
+
+  static levelUp(character) {
+    if (character.health <= 0) return;
+    character.level += 1;
+    character.attack = Math.ceil(Math.max(character.attack, character.attack * (1.8 - character.health / 100)));
+    character.defence = Math.ceil(Math.max(character.defence, character.defence * (1.8 - character.health / 100)));
+    character.health += 80;
+    if (character.health > 100) {
+      character.health = 100;
+    }
   }
 
   init() {
@@ -31,6 +47,7 @@ export default class GameController {
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
+    this.gamePlay.addNewGameListener(this.onNewGameClick.bind(this));
   }
 
   async attack(attacker, target, index) {
@@ -52,6 +69,13 @@ export default class GameController {
     }
     this.gamePlay.redrawPositions(this.players);
     this.selectedChar = null;
+    if (this.computerTeam.length === 0) {
+      this.nextLevel();
+    }
+    if (this.userTeam.length === 0) {
+      this.gameOver();
+      GamePlay.showMessage('Вы проиграли!');
+    }
   }
 
   async computerGame() {
@@ -105,6 +129,7 @@ export default class GameController {
   }
 
   async onCellClick(index) {
+    if (this.locked) return false;
     const characterOnCell = this.players.find((el) => el.position === index);
 
     if (characterOnCell) {
@@ -149,6 +174,7 @@ export default class GameController {
   }
 
   onCellEnter(index) {
+    if (this.locked) return false;
     const changeSelectCell = () => {
       if (this.selectedMouseCell != null) {
         this.gamePlay.deselectCell(this.selectedMouseCell);
@@ -192,5 +218,85 @@ export default class GameController {
 
   onCellLeave(index) {
     this.gamePlay.hideCellTooltip(index);
+  }
+
+  onNewGameClick() {
+    this.userTeam = generateTeam([Bowman, Swordsman], 1, 2);
+    this.computerTeam = generateTeam([Undead, Daemon, Vampire], 1, 2);
+    this.players = [...this.userTeam, ...this.computerTeam];
+    this.gamePlay.drawUi('prairie');
+    this.gamePlay.redrawPositions(this.players);
+    this.selectedCell = null;
+    this.selectedMouseCell = null;
+    this.selectedChar = null;
+    this.level = 1;
+    this.points = 0;
+    this.locked = false;
+  }
+
+  gameOver() {
+    this.locked = true;
+    this.gamePlay.setCursor('not-allowed');
+    if (this.points > this.gameState.points) {
+      this.gameState.points = this.points;
+    }
+  }
+
+  nextLevel() {
+    this.level += 1;
+    this.userTeam.forEach((el) => {
+      this.points += el.character.health;
+    });
+    let newPositions = [];
+    let newUserCharacters;
+
+    const upgradeLevel = (el) => {
+      if (el.character.level > 1) {
+        const { level } = el.character;
+
+        for (let l = 2; l <= level; l += 1) {
+          GameController.levelUp(el.character);
+        }
+        el.character.level = level;
+      }
+    };
+
+    const upgradePlayers = (number, userMaxLevel, computerMaxLevel) => {
+      newUserCharacters = generateTeam([Bowman, Swordsman, Magician], userMaxLevel, number);
+      newUserCharacters.forEach((el) => {
+        newPositions.push(el.position);
+        upgradeLevel(el);
+      });
+      this.userTeam.forEach((el) => {
+        GameController.levelUp(el.character);
+        el.position = getPosition(el.character);
+        while (newPositions.includes(el.position)) {
+          el.position = getPosition(el.character);
+        }
+      });
+      this.userTeam = this.userTeam.concat(newUserCharacters);
+      this.computerTeam = generateTeam([Undead, Daemon, Vampire], computerMaxLevel, this.userTeam.length);
+      this.computerTeam.forEach((el) => upgradeLevel(el));
+      this.players = [...this.userTeam, ...this.computerTeam];
+    };
+
+    switch (this.level) {
+      case 2:
+        this.gamePlay.drawUi('desert');
+        upgradePlayers(1, 1, 2);
+        break;
+      case 3:
+        this.gamePlay.drawUi('arctic');
+        upgradePlayers(2, 2, 3);
+        break;
+      case 4:
+        this.gamePlay.drawUi('mountain');
+        upgradePlayers(2, 3, 4);
+        break;
+      default:
+        this.gameOver();
+        GamePlay.showMessage('Ура! Победа!');
+    }
+    newPositions = [];
   }
 }
