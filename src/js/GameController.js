@@ -7,6 +7,7 @@ import Daemon from './characters/Daemon';
 import GamePlay from './GamePlay';
 import { generateTeam } from './generators';
 import info from './info';
+import checkOpportunity from './checkOpportunity';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -16,6 +17,7 @@ export default class GameController {
     this.computerTeam = generateTeam([Undead, Daemon, Vampire], 1, 2);
     this.players = [...this.userTeam, ...this.computerTeam];
     this.selectedCell = null;
+    this.selectedMouseCell = null;
     this.selectedChar = null;
   }
 
@@ -45,10 +47,44 @@ export default class GameController {
   }
 
   onCellEnter(index) {
+    const changeSelectCell = () => {
+      if (this.selectedMouseCell != null) {
+        this.gamePlay.deselectCell(this.selectedMouseCell);
+      }
+      this.selectedMouseCell = index;
+    };
     const characterOnCell = this.players.find((el) => el.position === index);
 
     if (characterOnCell) {
       this.gamePlay.showCellTooltip(info(characterOnCell), index);
+      if (['undead', 'vampire', 'daemon'].includes(characterOnCell.character.type)) {
+        if (this.selectedChar !== null) {
+          const canAttack = checkOpportunity('attack', this.selectedChar.position, this.selectedChar.character, index);
+
+          if (canAttack) {
+            this.gamePlay.setCursor('crosshair');
+            this.gamePlay.selectCell(index, 'red');
+            changeSelectCell();
+          } else {
+            this.gamePlay.setCursor('not-allowed');
+            changeSelectCell();
+          }
+        }
+      } else {
+        this.gamePlay.setCursor('pointer');
+        changeSelectCell();
+      }
+    } else if (this.selectedChar !== null) {
+      const canMove = checkOpportunity('move', this.selectedChar.position, this.selectedChar.character, index);
+
+      if (canMove) {
+        this.gamePlay.setCursor('pointer');
+        this.gamePlay.selectCell(index, 'green');
+        changeSelectCell();
+      } else {
+        this.gamePlay.setCursor('not-allowed');
+        changeSelectCell();
+      }
     }
   }
 
