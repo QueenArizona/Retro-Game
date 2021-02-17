@@ -1,3 +1,5 @@
+/* eslint-disable max-len */
+/* eslint-disable no-param-reassign */
 import Bowman from './characters/Bowman';
 import Swordsman from './characters/Swordsman';
 import Magician from './characters/Magician';
@@ -31,7 +33,28 @@ export default class GameController {
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
   }
 
-  onCellClick(index) {
+  async attack(attacker, target, index) {
+    const damage = Math.ceil(Math.max(attacker.attack - target.character.defence, attacker.attack * 0.1));
+
+    await this.gamePlay.showDamage(index, damage);
+    target.character.health -= damage;
+    if (target.character.health <= 0) {
+      if (['bowman', 'swordsman', 'magician'].includes(target.character.type)) {
+        const deleted = this.userTeam.indexOf(target);
+
+        this.userTeam.splice(deleted, 1);
+      } else {
+        const deleted = this.computerTeam.indexOf(target);
+
+        this.computerTeam.splice(deleted, 1);
+      }
+      this.players = [...this.userTeam, ...this.computerTeam];
+    }
+    this.gamePlay.redrawPositions(this.players);
+    this.selectedChar = null;
+  }
+
+  async onCellClick(index) {
     const characterOnCell = this.players.find((el) => el.position === index);
 
     if (characterOnCell) {
@@ -43,7 +66,19 @@ export default class GameController {
         this.selectedCell = index;
         this.selectedChar = characterOnCell;
       } else {
-        GamePlay.showError('You cannot play this character');
+        if (this.selectedChar === null) return;
+        const canAttack = checkOpportunity('attack', this.selectedChar.position, this.selectedChar.character, index);
+
+        if (canAttack) {
+          const attacker = this.selectedChar.character;
+          const target = this.players.find((el) => el.position === index);
+
+          await this.attack(attacker, target, index);
+          this.selectedChar = null;
+          this.gameState.turn = 'computer';
+        } else {
+          GamePlay.showError('You cannot play this character');
+        }
       }
     } else if (this.selectedChar !== null) {
       const canMove = checkOpportunity('move', this.selectedChar.position, this.selectedChar.character, index);
