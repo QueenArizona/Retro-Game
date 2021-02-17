@@ -48,6 +48,8 @@ export default class GameController {
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     this.gamePlay.addNewGameListener(this.onNewGameClick.bind(this));
+    this.gamePlay.addSaveGameListener(this.onSaveGameClick.bind(this));
+    this.gamePlay.addLoadGameListener(this.onLoadGameClick.bind(this));
   }
 
   async attack(attacker, target, index) {
@@ -232,6 +234,47 @@ export default class GameController {
     this.level = 1;
     this.points = 0;
     this.locked = false;
+  }
+
+  onSaveGameClick() {
+    const saveGame = {
+      userTeam: this.userTeam,
+      computerTeam: this.computerTeam,
+      level: this.level,
+      points: this.points,
+      selectedCell: this.selectedCell,
+      selectedChar: this.selectedChar,
+      gameState: this.gameState,
+    };
+
+    this.stateService.save(GameState.from(saveGame));
+    GamePlay.showMessage('Game saved');
+  }
+
+  onLoadGameClick() {
+    const loadGame = this.stateService.load();
+
+    if (loadGame) {
+      this.userTeam = loadGame.userTeam;
+      this.computerTeam = loadGame.computerTeam;
+      this.level = loadGame.level;
+      this.points = loadGame.points;
+      this.selectedCell = loadGame.selectedCell;
+      this.selectedChar = loadGame.selectedChar;
+      this.gameState = loadGame.gameState;
+      this.players = [...this.userTeam, ...this.computerTeam];
+
+      this.gamePlay.drawUi({
+        1: 'prairie',
+        2: 'desert',
+        3: 'arctic',
+        4: 'mountain',
+      }[loadGame.level]);
+
+      this.gamePlay.redrawPositions(this.players);
+    } else {
+      GamePlay.showError('We cannot load this game');
+    }
   }
 
   gameOver() {
