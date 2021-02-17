@@ -54,6 +54,56 @@ export default class GameController {
     this.selectedChar = null;
   }
 
+  async computerGame() {
+    if (this.computerTeam.length === 0) return;
+    const attackOpportunity = [];
+
+    this.computerTeam.forEach((el) => {
+      const opportunityArr = [];
+
+      for (let i = 0; i < this.userTeam.length; i += 1) {
+        const opportunity = checkOpportunity('attack', el.position, el.character, this.userTeam[i].position);
+
+        opportunityArr.push(opportunity);
+      }
+      attackOpportunity.push(opportunityArr);
+    });
+
+    function isTrue(el) {
+      return el.includes(true);
+    }
+
+    const computerCanAttack = attackOpportunity.findIndex(isTrue);
+
+    if (computerCanAttack !== -1) {
+      const attacker = this.computerTeam[computerCanAttack].character;
+      const targetIndex = attackOpportunity[computerCanAttack].indexOf(true);
+      const target = this.userTeam[targetIndex];
+      const index = target.position;
+
+      await this.attack(attacker, target, index);
+    } else {
+      const randomComputerIndex = Math.floor(Math.random() * this.computerTeam.length);
+      let moveDone = 'false';
+
+      while (moveDone === 'false') {
+        const randomCellIndex = Math.floor(Math.random() * 64);
+        const characterOnCell = this.players.find((el) => el.position === randomCellIndex);
+
+        if (!characterOnCell) {
+          const canComputerMove = checkOpportunity('move', this.computerTeam[randomComputerIndex].position, this.computerTeam[randomComputerIndex].character, randomCellIndex);
+
+          if (canComputerMove) {
+            this.computerTeam[randomComputerIndex].position = randomCellIndex;
+            this.gamePlay.redrawPositions(this.players);
+            moveDone = 'true';
+          }
+        }
+      }
+    }
+    this.gameState.turn = 'user';
+  }
+
   async onCellClick(index) {
     const characterOnCell = this.players.find((el) => el.position === index);
 
@@ -76,6 +126,7 @@ export default class GameController {
           await this.attack(attacker, target, index);
           this.selectedChar = null;
           this.gameState.turn = 'computer';
+          await this.computerGame();
         } else {
           GamePlay.showError('You cannot play this character');
         }
@@ -91,6 +142,7 @@ export default class GameController {
         }
         this.selectedChar = null;
         this.gameState.turn = 'computer';
+        await this.computerGame();
       }
     }
     this.selectedCell = null;
