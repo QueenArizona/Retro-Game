@@ -5,6 +5,7 @@ import Undead from './characters/Undead';
 import Vampire from './characters/Vampire';
 import Daemon from './characters/Daemon';
 import { generateTeam } from './generators';
+import info from './info';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -18,6 +19,9 @@ export default class GameController {
   init() {
     this.gamePlay.drawUi('prairie');
     this.gamePlay.redrawPositions(this.players);
+    this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
+    this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
+    this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
   }
 
   onCellClick(index) {
@@ -25,10 +29,14 @@ export default class GameController {
   }
 
   onCellEnter(index) {
-    // TODO: react to mouse enter
+    const characterOnCell = this.players.find((el) => el.position === index);
+
+    if (characterOnCell) {
+      this.gamePlay.showCellTooltip(info(characterOnCell), index);
+    }
   }
 
   onCellLeave(index) {
-    // TODO: react to mouse leave
+    this.gamePlay.hideCellTooltip(index);
   }
 }
